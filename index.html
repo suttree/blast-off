@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BLAST OFF — Quick Draw</title>
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #1a0f14; height: 100%; width: 100%;
+    font-family: 'Segoe UI', Arial, sans-serif; -webkit-user-select: none; user-select: none; touch-action: none; }
+
+  #stage {
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse at 50% 20%, rgba(255,140,60,0.18) 0%, rgba(26,15,20,0) 55%),
+      linear-gradient(180deg, #241220 0%, #1a0f14 45%, #120a10 100%);
+    overflow: hidden;
+  }
+
+  /* starfield */
+  #stars { position: absolute; inset: 0; opacity: 0.7; }
+  .star { position: absolute; width: 2px; height: 2px; background: #fff; border-radius: 50%; opacity: 0.5; }
+
+  #perspective {
+    position: absolute; left: 50%; top: 10%; width: 1px; height: 32%; transform: translateX(-50%);
+    background: linear-gradient(180deg, rgba(255,140,60,0), rgba(255,140,60,0.3), rgba(255,140,60,0));
+  }
+
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; color: #ffe9d6; }
+  #topBar { position: absolute; top: 16px; left: 0; right: 0; display: flex; justify-content: space-between; padding: 0 22px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+  #lives { display: flex; gap: 7px; align-items: center; }
+  #lives .lifeIcon svg { width: 20px; height: 18px; image-rendering: pixelated; display: block;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6)); }
+  #lives .lifeIcon.lost svg { opacity: 0.28; filter: grayscale(1) brightness(0.55); }
+  #roundWrap { text-align: right; }
+  #roundLabel { font-size: 12px; opacity: 0.6; letter-spacing: 2px; }
+  #roundNum { font-size: 24px; font-weight: 800; color: #ffcf5c; }
+  #streakWrap { position: absolute; top: 54px; left: 22px; font-size: 13px; font-weight: 700; color: #ff9e6d;
+    text-shadow: 0 0 10px rgba(255,158,109,0.7); opacity: 0; transition: opacity 0.2s; }
+
+  /* duel scene: vertical face-off — CPU far & up top, player near & down bottom */
+  #scene { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #combatants { position: relative; width: 100%; height: 84%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
+  .fighter { line-height: 1; text-align: center; transition: transform 0.18s ease; filter: drop-shadow(0 10px 14px rgba(0,0,0,0.5)); }
+  .spriteIcon { display: block; margin: 0 auto; overflow: visible; image-rendering: pixelated; image-rendering: crisp-edges; shape-rendering: crispEdges; }
+  #alien { transform-origin: center; margin-top: 4%; }
+  #alienIcon { width: 39px; height: 36px; }
+  #player { transform-origin: bottom center; margin-bottom: 2%; }
+  #playerIcon { width: 52px; height: 48px; }
+  .fighter.hit { animation: hitshake 0.35s ease; }
+  .fighter.fallen { transform: rotate(12deg); opacity: 0.4; }
+  @keyframes hitshake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px) rotate(-4deg)} 50%{transform:translateX(8px) rotate(4deg)} 80%{transform:translateX(-4px)} }
+
+  #alienTag { text-align: center; font-size: 11px; letter-spacing: 2px; color: #ffb27a; opacity: 0.75; margin-top: 6px; }
+  #alienLegend { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 6px; }
+  #alienLegend .legendItem { display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: 0.8; }
+  #alienLegend svg { width: 24px; height: 22px; image-rendering: pixelated; }
+  #alienLegend span { font-size: 9px; letter-spacing: 1.5px; color: #ffb27a; opacity: 0.85; }
+
+  .muzzle { position: absolute; left: 50%; transform: translateX(-50%); font-size: 30px; opacity: 0; }
+  #muzzleP { bottom: 30%; } #muzzleA { top: 26%; }
+  .muzzle.flash { animation: flashpop 0.2s ease; }
+  @keyframes flashpop { 0%{opacity:0; transform:translateX(-50%) scale(0.4)} 40%{opacity:1; transform:translateX(-50%) scale(1.3)} 100%{opacity:0; transform:translateX(-50%) scale(1)} }
+
+  #laser {
+    position: absolute; left: 50%; width: 5px; height: 18px; margin-left: -2.5px; border-radius: 3px;
+    opacity: 0; pointer-events: none; z-index: 8;
+  }
+
+  /* callouts */
+  #callout {
+    position: absolute; top: 30%; left: 0; right: 0; text-align: center;
+    font-weight: 900; letter-spacing: 4px; text-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    transition: opacity 0.12s, transform 0.12s;
+  }
+  #callout.ready { font-size: 34px; color: #ffd9a0; }
+  #callout.steady { font-size: 34px; color: #ffb27a; }
+  #callout.draw { font-size: 64px; color: #ff4d4d; text-shadow: 0 0 40px rgba(255,60,60,0.9); }
+  #callout.result { font-size: 30px; }
+  #callout.win { color: #8fe37e; text-shadow: 0 0 30px rgba(143,227,126,0.7); }
+  #callout.lose { color: #ff6b6b; text-shadow: 0 0 30px rgba(255,107,107,0.7); }
+
+  #flashRed { position: fixed; inset: 0; pointer-events: none; z-index: 6; background: rgba(255,30,30,0); transition: background 0.08s; }
+  #flashWhite { position: fixed; inset: 0; pointer-events: none; z-index: 7; background: rgba(255,255,255,0); transition: background 0.06s; }
+
+  #tapHint { position: absolute; bottom: 8%; left: 0; right: 0; text-align: center; font-size: 13px; opacity: 0.45; letter-spacing: 1px; }
+
+  /* center screens */
+  #centerScreen {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    pointer-events: all; background: radial-gradient(ellipse at center, rgba(40,20,20,0.55) 0%, rgba(10,6,8,0.94) 100%);
+    text-align: center; z-index: 20; padding: 0 20px; box-sizing: border-box;
+  }
+  #centerScreen h1 { font-size: clamp(38px,9vw,58px); margin: 0 0 4px 0; letter-spacing: 6px; font-weight: 900;
+    background: linear-gradient(90deg,#ff9e6d,#ffcf5c,#ff6b6b);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 20px rgba(255,140,60,0.4)); }
+  #centerScreen h2 { font-size: 16px; font-weight: 400; opacity: 0.75; margin: 0 0 26px 0; letter-spacing: 3px; }
+  #centerScreen .stat { font-size: 20px; margin: 4px 0; opacity: 0.9; }
+  #centerScreen .big { font-size: 44px; font-weight: 800; color: #ffcf5c; margin-bottom: 4px; }
+  #startBtn, #retryBtn {
+    margin-top: 24px; padding: 15px 44px; font-size: 19px; font-weight: 700; letter-spacing: 2px;
+    background: linear-gradient(90deg,#ff9e6d,#ff6b6b); border: none; border-radius: 40px;
+    color: #2a0e0e; cursor: pointer; box-shadow: 0 6px 24px rgba(255,110,90,0.35);
+  }
+  #startBtn:active, #retryBtn:active { transform: scale(0.97); }
+  #controls { margin-top: 26px; font-size: 13px; opacity: 0.55; line-height: 1.8; letter-spacing: 0.5px; }
+  #controls b { color: #ffcf5c; }
+  .hidden { display: none !important; }
+  #gameOverEmoji { font-size: 54px; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+<symbol id="sprite-ship-player" viewBox="0 0 13 12" shape-rendering="crispEdges"></symbol>
+<symbol id="sprite-ship-scout" viewBox="0 0 13 12" shape-rendering="crispEdges"></symbol>
+<symbol id="sprite-ship-raider" viewBox="0 0 13 12" shape-rendering="crispEdges"></symbol>
+<symbol id="sprite-ship-cruiser" viewBox="0 0 13 12" shape-rendering="crispEdges"></symbol>
+<symbol id="sprite-ship-dreadnought" viewBox="0 0 13 12" shape-rendering="crispEdges"></symbol>
+</defs>
+</svg>
+
+<div id="stage">
+  <div id="stars"></div>
+  <div id="perspective"></div>
+  <div id="scene">
+    <div id="combatants">
+      <div>
+        <div class="fighter" id="alien"><svg class="spriteIcon" id="alienIcon" viewBox="0 0 13 12"></svg></div>
+        <div id="alienTag">ELITE CRUISER</div>
+      </div>
+      <div class="muzzle" id="muzzleA">💥</div>
+      <div class="muzzle" id="muzzleP">💥</div>
+      <div class="fighter" id="player"><svg class="spriteIcon" id="playerIcon"><use href="#sprite-ship-player"></use></svg></div>
+    </div>
+  </div>
+  <div id="laser"></div>
+  <div id="callout"></div>
+  <div id="tapHint">tap / click / SPACE</div>
+</div>
+
+<div id="hud">
+  <div id="topBar">
+    <div id="lives"></div>
+    <div id="roundWrap">
+      <div id="roundLabel">ROUND</div>
+      <div id="roundNum">1</div>
+    </div>
+  </div>
+  <div id="streakWrap"></div>
+</div>
+
+<div id="flashRed"></div>
+<div id="flashWhite"></div>
+
+<div id="centerScreen">
+  <div id="titleView">
+    <h1>BLAST&nbsp;OFF</h1>
+    <h2>a quick draw showdown</h2>
+    <div id="alienLegend">
+      <div class="legendItem"><svg><use href="#sprite-ship-scout"></use></svg><span>ROOKIE</span></div>
+      <div class="legendItem"><svg><use href="#sprite-ship-raider"></use></svg><span>VETERAN</span></div>
+      <div class="legendItem"><svg><use href="#sprite-ship-cruiser"></use></svg><span>ELITE</span></div>
+      <div class="legendItem"><svg><use href="#sprite-ship-dreadnought"></use></svg><span>BOSS</span></div>
+    </div>
+    <button id="startBtn">START</button>
+    <div id="controls">
+      Wait for <b>FIRE!</b> — then tap or press <b>SPACE</b> as fast as you can.<br>
+      Fire early and you're disqualified. Freeze up and you're too slow.<br>
+      You've got <b>3 lives</b>. Good luck, stranger.
+    </div>
+  </div>
+  <div id="overView" class="hidden">
+    <div id="gameOverEmoji">💀</div>
+    <h1 style="font-size:42px;">GAME OVER</h1>
+    <div class="stat">You survived to</div>
+    <div class="big" id="finalRound">Round 1</div>
+    <div class="stat" id="bestStat"></div>
+    <button id="retryBtn">DRAW AGAIN</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const centerScreen = $('centerScreen'), titleView = $('titleView'), overView = $('overView');
+  const startBtn = $('startBtn'), retryBtn = $('retryBtn');
+  const livesEl = $('lives'), roundNumEl = $('roundNum'), streakEl = $('streakWrap');
+  const callout = $('callout'), scene = $('scene');
+  const playerEl = $('player'), alienEl = $('alien'), alienTag = $('alienTag'), alienIcon = $('alienIcon');
+  const muzzleP = $('muzzleP'), muzzleA = $('muzzleA'), laser = $('laser');
+  const flashRed = $('flashRed'), flashWhite = $('flashWhite');
+  const finalRoundEl = $('finalRound'), bestStatEl = $('bestStat');
+  const stage = $('stage');
+
+  // ship "shapes" cycle every round for visual variety; "tiers" control name/color and escalate every 3 rounds
+  const TIERS = [
+    { name:'ROOKIE SCOUT', palette: 'sprite-ship-scout' },
+    { name:'VETERAN RAIDER', palette: 'sprite-ship-raider' },
+    { name:'ELITE CRUISER', palette: 'sprite-ship-cruiser' },
+    { name:'BOSS DREADNOUGHT', palette: 'sprite-ship-dreadnought' },
+  ];
+
+  const BEST_KEY = 'blastoff_best_round';
+
+  let state = 'idle'; // idle, waiting, steady, armed, resolved
+  let lives = 3;
+  let round = 1;
+  let streak = 0;
+  let best = parseInt(localStorage.getItem(BEST_KEY) || '0', 10);
+  let timers = [];
+  let drawTime = 0;
+
+  const LASER_DURATION = 150; // ms for the bolt to travel between ships
+  const LASER_PLAYER_COLOR = '#ffcf5c';
+  const LASER_ENEMY_COLOR = '#ff5c5c';
+  const SHIP_UNIT = 2.8; // px per pixel-art cell for the in-game enemy ship — bigger grids render as bigger, more sprawling ships
+
+  function clearTimers(){ timers.forEach(t=>clearTimeout(t)); timers = []; }
+  function after(ms, fn){ const t = setTimeout(fn, ms); timers.push(t); return t; }
+
+  // --- audio: everything synthesized with WebAudio, no external files ---
+  let actx = null;
+  let masterGain = null;
+  let ambientStarted = false;
+
+  function initAudio(){
+    if (actx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    masterGain = actx.createGain();
+    masterGain.gain.value = 0.55;
+    masterGain.connect(actx.destination);
+  }
+
+  function startAmbient(){
+    if (!actx || ambientStarted) return;
+    ambientStarted = true;
+
+    // low detuned drone pair, slowly beating against each other
+    const droneGain = actx.createGain();
+    droneGain.gain.value = 0.05;
+    droneGain.connect(masterGain);
+
+    [55, 55.8].forEach(freq => {
+      const osc = actx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.connect(droneGain);
+      osc.start();
+    });
+
+    // filtered noise bed for a soft "deep space" hiss
+    const bufferSize = actx.sampleRate * 2;
+    const noiseBuffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
+    const noise = actx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    noise.loop = true;
+    const noiseFilter = actx.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.value = 420;
+    const noiseGain = actx.createGain();
+    noiseGain.gain.value = 0.035;
+    noise.connect(noiseFilter).connect(noiseGain).connect(masterGain);
+    noise.start();
+
+    // slow LFO drifting the drone volume, so it doesn't feel static
+    const lfo = actx.createOscillator();
+    lfo.frequency.value = 0.07;
+    const lfoGain = actx.createGain();
+    lfoGain.gain.value = 0.025;
+    lfo.connect(lfoGain).connect(droneGain.gain);
+    lfo.start();
+  }
+
+  function playBlaster(kind){
+    if (!actx) return;
+    const t0 = actx.currentTime;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = kind === 'player' ? 'sawtooth' : 'square';
+    const startFreq = kind === 'player' ? 1100 : 620;
+    const endFreq = kind === 'player' ? 260 : 140;
+    osc.frequency.setValueAtTime(startFreq, t0);
+    osc.frequency.exponentialRampToValueAtTime(endFreq, t0 + 0.14);
+    gain.gain.setValueAtTime(0.22, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16);
+    osc.connect(gain).connect(masterGain);
+    osc.start(t0);
+    osc.stop(t0 + 0.18);
+  }
+
+  // pixel-art spaceship sprites: each grid cell maps through a palette to a solid 1x1 square
+  // player ship noses up (toward the enemy at the top of the screen); enemy ships nose down (toward the player)
+
+  const PLAYER_SHIP_GRID = [
+    "      .      ",
+    "     ...     ",
+    "     .y.     ",
+    "    .....    ",
+    "    .....    ",
+    "   .......   ",
+    "  o.......o  ",
+    "  o.......o  ",
+    "    .....    ",
+    "    .ooo.    ",
+    "    G   G    ",
+    "    G   G    ",
+  ];
+  const PLAYER_PALETTE = { '.':'#d8dee6', y:'#16324a', o:'#6d7178', G:'#ffcf5c' };
+
+  // flying saucer: small, low-slung wide disc — the runt of the fleet
+  const SCOUT_GRID = [
+    "      ...      ",
+    "     .....     ",
+    "   o.......o   ",
+    " o...........o ",
+    "o.............o",
+    " o.o.o.o.o.o.o ",
+    "   .........   ",
+    "     .....     ",
+    "      .y.      ",
+  ];
+  // insectoid raider: sprawling swept wings, much wider than it is tall
+  const RAIDER_GRID = [
+    "  o             o  ",
+    "  oo           oo  ",
+    "   oo.........oo   ",
+    "    o.........o    ",
+    "     o.......o     ",
+    "      .......      ",
+    "       .GGG.       ",
+    "      .......      ",
+    "     o.......o     ",
+    "      .y...y.      ",
+    "        ...        ",
+    "         .         ",
+  ];
+  // stealth dart: tall, narrow, sharp — a long sliver of a hull
+  const CRUISER_GRID = [
+    "     .     ",
+    "    ...    ",
+    "    ...    ",
+    "   .....   ",
+    "   .....   ",
+    "  o.....o  ",
+    "  o.....o  ",
+    "   .....   ",
+    "   .y.y.   ",
+    "   .....   ",
+    "   .....   ",
+    "   .GGG.   ",
+    "    ...    ",
+    "    ...    ",
+    "     .     ",
+  ];
+  // blocky dreadnought: the biggest hull in the fleet — full-width slab with turrets
+  const DREADNOUGHT_GRID = [
+    " oo.............oo   ",
+    " oo.............oo   ",
+    ".....................",
+    "  .y.............y.  ",
+    "    .............    ",
+    "     ...........     ",
+    "      .........      ",
+    "       .GGGGG.       ",
+    "      .........      ",
+    "       .......       ",
+    "       o.....o       ",
+    "         ...         ",
+    "          .          ",
+  ];
+
+  const SHIP_GRIDS = {
+    'sprite-ship-scout': SCOUT_GRID,
+    'sprite-ship-raider': RAIDER_GRID,
+    'sprite-ship-cruiser': CRUISER_GRID,
+    'sprite-ship-dreadnought': DREADNOUGHT_GRID,
+  };
+  const SHIP_PALETTES = {
+    'sprite-ship-scout':       { '.':'#8fe37e', o:'#5fc24a', y:'#12210f', G:'#ffe066' },
+    'sprite-ship-raider':      { '.':'#b39cff', o:'#8a6fe0', y:'#1a1030', G:'#ffe066' },
+    'sprite-ship-cruiser':     { '.':'#cfd6dc', o:'#a7b0b8', y:'#0c0f12', G:'#ffe066' },
+    'sprite-ship-dreadnought': { '.':'#8a8f98', o:'#6d7178', y:'#ff4d4d', G:'#ff8a8a' },
+  };
+  // pool of hull shapes the enemy cycles through every round, independent of tier
+  const SHIP_SHAPES = [SCOUT_GRID, RAIDER_GRID, CRUISER_GRID, DREADNOUGHT_GRID];
+
+  function buildPixelSVG(grid, palette){
+    let out = '';
+    for (let ry=0; ry<grid.length; ry++){
+      const row = grid[ry];
+      for (let rx=0; rx<row.length; rx++){
+        const ch = row[rx];
+        if (ch === ' ') continue;
+        const color = palette[ch];
+        if (!color) continue;
+        out += `<rect x="${rx}" y="${ry}" width="1" height="1" fill="${color}"/>`;
+      }
+    }
+    return out;
+  }
+
+  function setViewBox(el, grid){
+    el.setAttribute('viewBox', `0 0 ${grid[0].length} ${grid.length}`);
+  }
+
+  function renderSprites(){
+    $('sprite-ship-player').innerHTML = buildPixelSVG(PLAYER_SHIP_GRID, PLAYER_PALETTE);
+    setViewBox($('sprite-ship-player'), PLAYER_SHIP_GRID);
+    Object.keys(SHIP_GRIDS).forEach(id => {
+      $(id).innerHTML = buildPixelSVG(SHIP_GRIDS[id], SHIP_PALETTES[id]);
+      setViewBox($(id), SHIP_GRIDS[id]);
+    });
+  }
+
+  function makeStars(){
+    const wrap = $('stars');
+    wrap.innerHTML = '';
+    for (let i=0;i<70;i++){
+      const s = document.createElement('div');
+      s.className = 'star';
+      s.style.left = Math.random()*100+'%';
+      s.style.top = Math.random()*70+'%';
+      s.style.opacity = (0.2+Math.random()*0.6).toFixed(2);
+      s.style.width = s.style.height = (Math.random()<0.15?'3px':'1.5px');
+      wrap.appendChild(s);
+    }
+  }
+
+  function setCallout(text, cls, extraCls){
+    callout.textContent = text;
+    callout.className = cls + (extraCls ? ' '+extraCls : '');
+  }
+
+  function updateHud(){
+    livesEl.innerHTML = '';
+    for (let i=0;i<3;i++){
+      const span = document.createElement('span');
+      span.className = 'lifeIcon' + (i >= lives ? ' lost' : '');
+      span.innerHTML = '<svg viewBox="0 0 13 12"><use href="#sprite-ship-player"></use></svg>';
+      livesEl.appendChild(span);
+    }
+    roundNumEl.textContent = round;
+    if (streak >= 2) {
+      streakEl.textContent = streak + ' IN A ROW 🔥';
+      streakEl.style.opacity = 1;
+    } else {
+      streakEl.style.opacity = 0;
+    }
+  }
+
+  function alienForRound(r){
+    const tierIdx = Math.min(TIERS.length-1, Math.floor((r-1)/3));
+    const tier = TIERS[tierIdx];
+    const shape = SHIP_SHAPES[(r-1) % SHIP_SHAPES.length];
+    return { grid: shape, palette: SHIP_PALETTES[tier.palette], name: tier.name };
+  }
+
+  // enemy gets faster (more responsive) each round: its reaction window shrinks
+  function enemyReactionTime(r){
+    const t = Math.min(1, (r-1)/14);
+    const maxT = 650 - t*(650-260);
+    const minT = 380 - t*(380-140);
+    return minT + Math.random()*(maxT-minT);
+  }
+
+  function fireLaser(fromEl, toEl, color, onArrive){
+    const stageRect = stage.getBoundingClientRect();
+    const fromRect = fromEl.getBoundingClientRect();
+    const toRect = toEl.getBoundingClientRect();
+    const startY = fromRect.top + fromRect.height/2 - stageRect.top;
+    const endY = toRect.top + toRect.height/2 - stageRect.top;
+    laser.style.transition = 'none';
+    laser.style.background = color;
+    laser.style.boxShadow = `0 0 10px ${color}, 0 0 4px #fff`;
+    laser.style.top = startY + 'px';
+    laser.style.opacity = '1';
+    void laser.offsetHeight; // force reflow so the transition below actually animates
+    laser.style.transition = `top ${LASER_DURATION}ms linear`;
+    requestAnimationFrame(()=> { laser.style.top = endY + 'px'; });
+    after(LASER_DURATION, () => {
+      laser.style.opacity = '0';
+      onArrive && onArrive();
+    });
+  }
+
+  function resetFighters(){
+    playerEl.className = 'fighter';
+    alienEl.className = 'fighter';
+    muzzleP.classList.remove('flash');
+    muzzleA.classList.remove('flash');
+  }
+
+  function startGame(){
+    lives = 3; round = 1; streak = 0;
+    flashRed.style.background = 'rgba(255,30,30,0)';
+    flashWhite.style.background = 'rgba(255,255,255,0)';
+    centerScreen.classList.add('hidden');
+    updateHud();
+    nextRound();
+  }
+
+  function nextRound(){
+    state = 'idle';
+    resetFighters();
+    const alien = alienForRound(round);
+    alienIcon.innerHTML = buildPixelSVG(alien.grid, alien.palette);
+    setViewBox(alienIcon, alien.grid);
+    alienIcon.style.width = (alien.grid[0].length * SHIP_UNIT) + 'px';
+    alienIcon.style.height = (alien.grid.length * SHIP_UNIT) + 'px';
+    alienTag.textContent = alien.name;
+    roundNumEl.textContent = round;
+    setCallout('', '');
+    after(650, beginDuel);
+  }
+
+  function beginDuel(){
+    state = 'waiting';
+    setCallout('READY…', 'callout ready');
+    const readyDelay = 550 + Math.random()*350;
+    after(readyDelay, () => {
+      if (state !== 'waiting') return;
+      state = 'steady';
+      setCallout('AIM…', 'callout steady');
+      const steadyDelay = 500 + Math.random()*2200; // randomized to prevent rhythm-timing
+      after(steadyDelay, () => {
+        if (state !== 'steady') return;
+        draw();
+      });
+    });
+  }
+
+  function draw(){
+    state = 'armed';
+    drawTime = performance.now();
+    setCallout('FIRE!', 'callout draw');
+    after(enemyReactionTime(round), () => {
+      if (state === 'armed') tooSlow();
+    });
+  }
+
+  function flashScreen(el, color){
+    el.style.background = color;
+    setTimeout(()=> { el.style.background = color.replace(/[\d.]+\)$/,'0)'); }, 90);
+  }
+
+  function loseLife(reason){
+    lives--;
+    updateHud();
+    if (lives <= 0){
+      after(700, endGame);
+    } else {
+      after(900, nextRound);
+    }
+    return lives > 0;
+  }
+
+  // jumping the gun or freezing both leave the player defenseless — the enemy gets the only shot
+  function enemyFires(reason){
+    state = 'resolved';
+    streak = 0;
+    setCallout(reason === 'early' ? 'TOO SOON!' : 'TOO SLOW!', 'callout result lose');
+    playBlaster('enemy');
+    fireLaser(alienIcon, $('playerIcon'), LASER_ENEMY_COLOR, () => {
+      playerEl.classList.add('hit');
+      flashScreen(flashRed, 'rgba(255,30,30,0.35)');
+      fireMuzzle(muzzleP);
+    });
+    updateHud();
+    loseLife(reason);
+  }
+
+  function tooSoon(){
+    if (state !== 'waiting' && state !== 'steady') return;
+    enemyFires('early');
+  }
+
+  function tooSlow(){
+    if (state !== 'armed') return;
+    enemyFires('slow');
+  }
+
+  function win(reactionMs){
+    if (state !== 'armed') return;
+    state = 'resolved';
+    streak++;
+    setCallout(reactionMs + ' ms — GOT ' + (streak>1?'EM!':'IM!'), 'callout result win');
+    playBlaster('player');
+    fireLaser($('playerIcon'), alienIcon, LASER_PLAYER_COLOR, () => {
+      alienEl.classList.add('hit');
+      fireMuzzle(muzzleA);
+      after(120, ()=> alienEl.classList.add('fallen'));
+      flashScreen(flashWhite, 'rgba(255,255,255,0.5)');
+    });
+    updateHud();
+    round++;
+    after(1100, nextRound);
+  }
+
+  function fireMuzzle(el){
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+  }
+
+  function endGame(){
+    clearTimers();
+    state = 'idle';
+    if (round > best){
+      best = round;
+      localStorage.setItem(BEST_KEY, String(best));
+    }
+    finalRoundEl.textContent = 'Round ' + round;
+    bestStatEl.textContent = 'Best: Round ' + best;
+    titleView.classList.add('hidden');
+    overView.classList.remove('hidden');
+    centerScreen.classList.remove('hidden');
+  }
+
+  function handleInput(){
+    if (state === 'waiting' || state === 'steady') { tooSoon(); return; }
+    if (state === 'armed') {
+      const rt = Math.round(performance.now() - drawTime);
+      win(rt);
+      return;
+    }
+  }
+
+  // input listeners
+  document.addEventListener('keydown', (e)=>{
+    if (e.code === 'Space'){
+      e.preventDefault();
+      if (!centerScreen.classList.contains('hidden')) return;
+      handleInput();
+    }
+  });
+  scene.addEventListener('pointerdown', (e)=>{
+    if (!centerScreen.classList.contains('hidden')) return;
+    e.preventDefault();
+    handleInput();
+  });
+
+  startBtn.addEventListener('click', ()=>{
+    initAudio();
+    startAmbient();
+    clearTimers();
+    overView.classList.add('hidden');
+    titleView.classList.remove('hidden');
+    startGame();
+  });
+  retryBtn.addEventListener('click', ()=>{
+    initAudio();
+    startAmbient();
+    clearTimers();
+    overView.classList.add('hidden');
+    titleView.classList.remove('hidden');
+    startGame();
+  });
+
+  renderSprites();
+  makeStars();
+  updateHud();
+})();
+</script>
+</body>
+</html>
