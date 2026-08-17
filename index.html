@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>BLAST OFF — Quick Draw</title>
+<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
 <style>
   html, body { margin: 0; padding: 0; overflow: hidden; background: #1a0f14; height: 100%; width: 100%;
     font-family: 'Segoe UI', Arial, sans-serif; -webkit-user-select: none; user-select: none; touch-action: none; }
@@ -96,7 +97,7 @@
     background: linear-gradient(90deg,#ff9e6d,#ffcf5c,#ff6b6b);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     filter: drop-shadow(0 0 20px rgba(255,140,60,0.4)); }
-  #centerScreen h2 { font-size: 16px; font-weight: 400; opacity: 0.75; margin: 0 0 26px 0; letter-spacing: 3px; }
+  #centerScreen h2 { font-size: 16px; font-weight: 400; color: #ffe9d6; opacity: 0.75; margin: 0 0 26px 0; letter-spacing: 3px; }
   #centerScreen .stat { font-size: 20px; margin: 4px 0; opacity: 0.9; }
   #centerScreen .big { font-size: 44px; font-weight: 800; color: #ffcf5c; margin-bottom: 4px; }
   #startBtn, #retryBtn {
@@ -204,6 +205,28 @@
   ];
 
   const BEST_KEY = 'blastoff_best_round';
+
+  // --- CrazyGames SDK integration ---
+  // Loading events bracket the game's setup; gameplay events bracket active play
+  // (a round in progress) vs. menu/game-over; happytime fires on a new personal best.
+  let cgReady = false;
+  (async function initCrazyGamesSDK(){
+    if (!window.CrazyGames || !window.CrazyGames.SDK) return;
+    try {
+      await window.CrazyGames.SDK.init();
+      cgReady = true;
+      // by the time init() resolves, this script's synchronous setup (renderSprites/makeStars/etc.)
+      // has already run to completion — the game is instantly playable, so report loading as
+      // effectively instantaneous rather than trying to bracket a real asset-loading phase.
+      window.CrazyGames.SDK.game.loadingStart();
+      window.CrazyGames.SDK.game.loadingStop();
+    } catch (e) {
+      // SDK unavailable (offline, not on a CrazyGames domain, etc.) — game still works standalone
+    }
+  })();
+  function cgGameplayStart(){ if (cgReady) try { window.CrazyGames.SDK.game.gameplayStart(); } catch(e){} }
+  function cgGameplayStop(){ if (cgReady) try { window.CrazyGames.SDK.game.gameplayStop(); } catch(e){} }
+  function cgHappytime(){ if (cgReady) try { window.CrazyGames.SDK.game.happytime(); } catch(e){} }
 
   let state = 'idle'; // idle, waiting, steady, armed, resolved
   let lives = 3;
@@ -503,6 +526,7 @@
     flashWhite.style.background = 'rgba(255,255,255,0)';
     centerScreen.classList.add('hidden');
     updateHud();
+    cgGameplayStart();
     nextRound();
   }
 
@@ -612,9 +636,11 @@
   function endGame(){
     clearTimers();
     state = 'idle';
+    cgGameplayStop();
     if (round > best){
       best = round;
       localStorage.setItem(BEST_KEY, String(best));
+      cgHappytime();
     }
     finalRoundEl.textContent = 'Round ' + round;
     bestStatEl.textContent = 'Best: Round ' + best;

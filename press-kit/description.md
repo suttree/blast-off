@@ -1,17 +1,23 @@
-# Blast Off — Store Listing Copy
+# Blast Off — CrazyGames Submission Kit
 
-## Title
-Blast Off
+Specs below are pulled directly from the CrazyGames developer docs
+(docs.crazygames.com/requirements/game-covers/, /requirements/technical/,
+/requirements/quality/) as of this kit's creation. All required assets are
+generated to those exact dimensions.
 
-## Tagline (short, ~60 chars)
+## Store listing copy
+
+**Title:** Blast Off
+
+**Tagline (short, ~60 chars):**
 A pixel-art quick-draw duel against the fleet. React first or die.
 
-## Short description (~150–200 chars, for cards/listings)
+**Short description (~150–200 chars):**
 Wait for READY… AIM… FIRE! then blast your opponent before they blast you.
 Fire too early and you're defenseless — freeze up and you're outgunned.
 Every round the enemy gets faster.
 
-## Long description
+**Long description:**
 
 **Blast Off** is a one-button pixel-art quick-draw duel, reimagined as a
 spaceship showdown. You face off against a lone enemy ship down a starlit
@@ -37,48 +43,54 @@ generated sound (ambient space drone, snappy laser blasts) — no external
 art or audio assets. Runs great on mobile and desktop; tap, click, or hit
 SPACE to fire.
 
-## Feature bullets
-- One-button, pick-up-and-play quick-draw duel
-- Escalating difficulty — the enemy's reaction time shrinks every round
-- Four distinct enemy ship classes (Scout, Raider, Cruiser, Dreadnought),
-  each with a unique pixel-art silhouette and size
-- Visible laser bolts, screen-flash hit feedback, and streak tracking
-- Synthesized ambient audio and blaster sound effects (no external files)
-- Local best-round tracking
-- Fully responsive — playable on mobile (portrait) and desktop
+**Controls:** Tap / click anywhere, or press SPACE, the instant FIRE! appears.
 
-## Genre / tags
-Arcade, Reflex, Reaction, Skill, Space, Sci-Fi, One-Button, Pixel Art,
-Shooter, Endless, High Score
+**Genre / tags:** Arcade, Reflex, Reaction, Skill, Space, Sci-Fi, One-Button,
+Pixel Art, Shooter, Endless, High Score
 
-## Controls
-- **Tap / Click** anywhere, or press **SPACE**, the instant you see FIRE!
-- Works on desktop (keyboard/mouse) and mobile (touch)
+**Suggested age rating:** PEGI 3 / all ages — stylized pixel-art lasers only,
+no blood, no text to localize.
 
-## Orientation
-Portrait-first, but scales cleanly to landscape/desktop windows.
+## Asset checklist vs. CrazyGames requirements
 
-## Suggested audience
-All ages — no violence beyond stylized pixel-art lasers, no text/dialogue
-to localize, quick sessions (10 seconds to a few minutes per run).
+| Requirement (per docs.crazygames.com) | File | Status |
+|---|---|---|
+| Cover, landscape 1920×1080 (16:9) | `covers/cover-landscape-1920x1080.png` | ✅ exact size |
+| Cover, portrait 800×1200 (2:3) | `covers/cover-portrait-800x1200.png` | ✅ exact size |
+| Cover, square 800×800 (1:1) | `covers/cover-square-800.png` | ✅ exact size |
+| Preview video, landscape 1080p (16:9), ≤20s, no audio | `video/preview-landscape-1920x1080.mp4` | ✅ 1920×1080, 19.7s, no audio track |
+| Preview video, portrait 1080p (2:3), ≤20s, no audio | `video/preview-portrait-1080x1620.mp4` | ✅ 1080×1620, 19.7s, no audio track |
+| Game description + controls text | this file | ✅ |
 
-## Assets included in this press kit
-- `screenshots/icon-512.png` — 512×512 square icon/cover art
-- `screenshots/01-title.png` — title screen (mobile portrait, 480×854)
-- `screenshots/02-ready.png` / `03-aim.png` / `04-fire.png` — the READY / AIM / FIRE! sequence
-- `screenshots/05-laser.png` — a laser bolt mid-flight
-- `screenshots/06-hit.png` — a landed hit with the win callout
-- `screenshots/07-midgame.png` — later-round gameplay with an active streak
-- `screenshots/08-gameover.png` — the game over screen
-- `screenshots/09-title-wide.png` — title screen, wider viewport (800×1000)
-- `video/gameplay-demo.mp4` — ~44s full gameplay session (mp4, h264)
-- `video/gameplay-highlight.gif` — ~6.5s looping highlight clip (gif)
+Covers follow CrazyGames' design guidelines: game title rendered directly
+on the cover, no borders/store logos/extra icons/text beyond the title,
+consistent visual identity across all three sizes, no raw screenshots (used
+the hero ship + logo instead). Both preview videos open on their matching
+static cover frame (per their "use your static cover as the opening frame"
+rule), contain no audio track, no black bars, and no visible cursor.
 
-## Notes for submission
-These asset sizes follow common HTML5 game-portal conventions (512×512
-square icon, portrait/mobile-first screenshots since the game itself is
-portrait-oriented, short mp4 + gif gameplay clips). I couldn't find a
-public CleverGames developer/submission spec page to confirm their exact
-required dimensions — worth double-checking their dev portal once you're
-logged in, and I'm happy to re-export any asset at a different size or
-aspect ratio if their upload form asks for something specific.
+**One spec I couldn't fully pin down:** CrazyGames' docs describe covers
+in general layout terms (title + hero art, no clutter) but don't give a
+minimum/maximum file size in KB, so I didn't constrain for that — all three
+PNGs are a few hundred KB, which should be well within any reasonable limit.
+
+## Bonus / reference assets (not part of the CrazyGames spec, extra material)
+
+- `screenshots/01-title.png` → `09-title-wide.png` — actual gameplay
+  screenshots (title screen, READY/AIM/FIRE sequence, a laser mid-flight,
+  a landed hit, mid-round streak, game over) — useful for a press page,
+  social posts, or other portals that do want raw screenshots
+- `video/gameplay-demo.mp4` — ~44s uncut gameplay session (multiple rounds,
+  a loss, a retry) — longer than CrazyGames' 20s cap, good for a YouTube/
+  press-page embed instead
+- `video/gameplay-highlight.gif` — ~6.5s looping clip, handy for anywhere
+  a static preview video is easier than mp4 (README, forum post, etc.)
+
+## How everything was captured
+
+All assets are real captures, not mockups: Playwright drove an actual
+headless Chrome instance against the live game (served locally), scripting
+correctly-timed input to win rounds, progress through enemy tiers, and
+reach the game-over screen — then screenshotted and video-recorded the
+actual DOM/canvas output. Videos were assembled with ffmpeg (cover-frame
+prepend, trim to spec, strip audio, encode to h264 mp4).
